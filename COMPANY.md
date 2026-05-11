@@ -1,7 +1,7 @@
 ---
 schema: agentcompanies/v1
 kind: company
-slug: ipcom
+slug: ip-com
 name: IP Commercialization
 description: >
   Identifies, evaluates, packages, and brokers commercialization of intellectual
