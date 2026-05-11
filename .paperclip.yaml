@@ -1,0 +1,109 @@
+# .paperclip.yaml — tech-naucode/ip-com
+#
+# Per-company runtime config. IP commercialization engine — low-volume,
+# high-value workflow. Spending lower than delivery engines because tasks
+# are deeper but less frequent.
+
+# ─────────────── Spending ────────────────
+spending_caps:
+  per_run_usd: 5.00
+  per_day_usd: 15.00          # not high-frequency
+  per_month_usd: 150.00
+  alert_threshold_pct: 80
+
+# ─────────────── Models ────────────────
+default_models:
+  pro: claude-sonnet-4-6       # deal evaluation, term sheet drafting
+  flash: claude-haiku-4-5      # research, scoring
+  reasoning: claude-opus-4-7   # complex valuation analysis
+
+# ─────────────── Approval gates ────────────────
+# IP work is Principal-heavy. License terms are strategic.
+approval_required:
+  license_terms_draft: principal       # G-05 + G-03
+  counterparty_outreach: principal     # initial outreach to potential licensee
+  valuation_report_external: principal # before sharing valuation outside NAUCode
+  deal_sign: both                      # G-03 — Managing draft, Principal sign
+
+# ─────────────── Knowledge sources ────────────────
+knowledge_sources:
+  - https://raw.githubusercontent.com/tech-naucode/brand/main/brand-kit.md
+  - https://raw.githubusercontent.com/tech-naucode/brand/main/regulatory-claims.md
+  # LIFT licensing is the primary IP asset right now
+  - https://raw.githubusercontent.com/tech-naucode/lift/main/COMPANY.md
+  - https://raw.githubusercontent.com/tech-naucode/lift/main/license-models.md
+  - https://raw.githubusercontent.com/tech-naucode/lift/main/dsr-audit/current-state.md
+  # Contracts for term sheets + licensing
+  - https://raw.githubusercontent.com/tech-naucode/compliance/main/contracts/ip-assignment-template.md
+  - https://raw.githubusercontent.com/tech-naucode/compliance/main/contracts/nda-template.md
+  - https://raw.githubusercontent.com/tech-naucode/compliance/main/external-counsel.md
+  - https://raw.githubusercontent.com/tech-naucode/hq/main/quality-gates.md
+
+cache_strategy:
+  knowledge_sources_ttl: 2h    # IP content changes slowly
+  llm_responses_cache: false
+
+# ─────────────── Wake triggers ────────────────
+webhooks:
+  on_issue_created:
+    - if_label: ip-inquiry
+      trigger_agent: ip-scout                # external inquiry about licensing
+    - if_label: market-scan-request
+      trigger_agent: market-analyst
+    - if_label: term-sheet-needed
+      trigger_agent: deal-drafter
+  on_label_added:
+    - if_label: valuation-needed
+      trigger_agent: market-analyst
+    - if_label: license-counterparty-identified
+      trigger_agent: commercial-director
+
+crons:
+  - name: monthly-market-scan
+    schedule: "0 9 1 * *"      # 1st of month 9am UTC
+    trigger_agent: market-analyst
+    payload: { action: monthly-licensee-prospect-scan }
+  - name: quarterly-portfolio-review
+    schedule: "0 9 1 1,4,7,10 *"  # Quarterly first of Jan/Apr/Jul/Oct
+    trigger_agent: commercial-director
+    payload: { action: quarterly-ip-portfolio-review }
+
+# ─────────────── External integrations ────────────────
+required_mcp:
+  - github
+  - firecrawl                   # company / market research
+  - linkedin                    # research counterparties
+  # - patent-search-api         # if patent prosecution becomes relevant
+
+required_secrets:
+  - FIRECRAWL_API_KEY
+  - LINKEDIN_API_TOKEN          # for counterparty research
+
+# ─────────────── IP portfolio tracking ────────────────
+ip_portfolio:
+  # Maps to lift/license-models.md tier structure
+  current_assets:
+    - slug: lift
+      asset_type: methodology
+      maturity: dsr-layer-5
+      license_tier_active: tier-1-pilot
+      license_tier_target_2027: tier-2-commercial
+  pipeline:
+    # Future IP candidates — populated as methods mature
+    - slug: certainty-engine
+      status: subset-of-lift
+    - slug: propozel-as-platform
+      status: tech-product-not-methodology
+
+# ─────────────── Counterparty pipeline ────────────────
+state_machine:
+  base_path: counterparties/
+  stages:
+    - identified
+    - researched
+    - approached
+    - nda-signed
+    - term-sheet-out
+    - negotiation
+    - licensed
+    - declined
